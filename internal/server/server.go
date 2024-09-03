@@ -2,13 +2,18 @@ package server
 
 import (
 	"context"
-	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	logv1 "loggy/api/v1"
+	cfg "loggy/internal/config"
+
+	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
-	logv1 "loggy/api/v1"
 )
 
 type CommitLog interface {
@@ -39,11 +44,24 @@ type grpcServer struct {
 }
 
 func NewGRPCServer(config *Config, opts ...grpc.ServerOption) (*grpc.Server, error) {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+	logOpts := []logging.Option{
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+	}
 	opts = append(
 		opts,
-		grpc.ChainStreamInterceptor(grpc_auth.StreamServerInterceptor(authenticate)),
-		grpc.ChainUnaryInterceptor(grpc_auth.UnaryServerInterceptor(authenticate)),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainStreamInterceptor(
+			logging.StreamServerInterceptor(cfg.InterceptorLogger(logger), logOpts...),
+		),
+		grpc.ChainUnaryInterceptor(
+			logging.UnaryServerInterceptor(cfg.InterceptorLogger(logger), logOpts...),
+		),
+		grpc.ChainStreamInterceptor(grpcauth.StreamServerInterceptor(authenticate)),
+		grpc.ChainUnaryInterceptor(grpcauth.UnaryServerInterceptor(authenticate)),
 	)
+
 	gsrv := grpc.NewServer(opts...)
 	srv, err := newGRPCServer(config)
 	if err != nil {
@@ -84,6 +102,7 @@ func (s *grpcServer) Produce(
 	ctx context.Context,
 	req *logv1.ProduceRequest,
 ) (*logv1.ProduceResponse, error) {
+
 	if err := s.Authorizer.Authorize(
 		subject(ctx),
 		objectWildCard,

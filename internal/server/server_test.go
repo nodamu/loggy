@@ -93,7 +93,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	require.NoError(t, err)
 
 	authorizer := auth.New(config.ACLModelFile, config.ACLPolicyFile)
-	t.Logf("model: %s and policy is %s", config.ACLModelFile, config.ACLPolicyFile)
+	//t.Logf("model: %s and policy is %s", config.ACLModelFile, config.ACLPolicyFile)
 	//t.Logf(authorizer.)
 	cfg = &Config{
 		CommitLog:  clog,
