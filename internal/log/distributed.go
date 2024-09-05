@@ -321,7 +321,7 @@ func (l *DistributedLog) Leave(id string) error {
 
 func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
 	timeoutc := time.After(timeout)
-	ticker := time.NewTicker(timeout)
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
 		select {
