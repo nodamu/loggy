@@ -335,6 +335,23 @@ func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
 	}
 }
 
+func (l *DistributedLog) GetServers() ([]*logv1.Server, error) {
+	future := l.raft.GetConfiguration()
+	if err := future.Error(); err != nil {
+		return nil, err
+	}
+	var servers []*logv1.Server
+	for _, server := range future.Configuration().Servers {
+		leaderAddr, _ := l.raft.LeaderWithID()
+		servers = append(servers, &logv1.Server{
+			Id:       string(server.ID),
+			RpcAddr:  string(server.Address),
+			IsLeader: leaderAddr == server.Address,
+		})
+	}
+	return servers, nil
+}
+
 func (l *DistributedLog) Close() error {
 	f := l.raft.Shutdown()
 	if err := f.Error(); err != nil {
@@ -351,7 +368,11 @@ type StreamLayer struct {
 	peerTLSConfig   *tls.Config
 }
 
-func NewStreamLayer(ln net.Listener, serverTLSConfig *tls.Config, peerTLSConfig *tls.Config) *StreamLayer {
+func NewStreamLayer(
+	ln net.Listener,
+	serverTLSConfig *tls.Config,
+	peerTLSConfig *tls.Config,
+) *StreamLayer {
 	return &StreamLayer{
 		ln:              ln,
 		serverTLSConfig: serverTLSConfig,

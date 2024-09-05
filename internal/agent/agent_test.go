@@ -12,6 +12,7 @@ import (
 	logv1 "loggy/api/v1"
 	"loggy/internal/agent"
 	"loggy/internal/config"
+	"loggy/internal/loadbalance"
 	"os"
 	"testing"
 	"time"
@@ -79,6 +80,8 @@ func TestAgent(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	// wait until replication has finished
+	time.Sleep(3 * time.Second)
 	consumeResponse, err := leaderClient.Consume(context.Background(), &logv1.ConsumeRequest{
 		Offset: produceResponse.Offset,
 	})
@@ -112,7 +115,7 @@ func client(t *testing.T, a *agent.Agent, tlsConfig *tls.Config) logv1.LogClient
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(tlsCreds)}
 	rpcAddr, err := a.Config.RPCAddr()
 	require.NoError(t, err)
-	conn, err := grpc.NewClient(fmt.Sprintf("%s", rpcAddr), opts...)
+	conn, err := grpc.NewClient(fmt.Sprintf("%s:///%s", loadbalance.Name, rpcAddr), opts...)
 	require.NoError(t, err)
 	client := logv1.NewLogClient(conn)
 	return client

@@ -33,3 +33,7 @@ gencert:
 			-profile=client \
 			-cn="nobody" \
 			test/client-csr.json | cfssljson -bare nobody-client
+
+TAG ?= 0.0.1
+build-docker:
+	docker build -t github.com/nodamu/loggy:$(TAG) .
